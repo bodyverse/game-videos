@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-slate-950 text-slate-100;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.glass-panel {
+  @apply rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl;
+}

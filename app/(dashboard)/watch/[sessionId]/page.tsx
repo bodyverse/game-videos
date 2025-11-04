@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 import { supabaseServerClient } from "@/lib/supabaseServerClient";
 import { SessionPlayer } from "@/components/session/SessionPlayer";
 
-const supabaseEnabled = process.env.SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 
 type SessionParams = {
   params: {

@@ -9,7 +9,7 @@ export type FeaturedVideo = {
   thumbnail_url: string | null;
 };
 
-const supabaseEnabled = process.env.SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 
 const fallbackVideos: FeaturedVideo[] = [
   {

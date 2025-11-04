@@ -17,7 +17,7 @@ requiredEnv.forEach((name) => {
   }
 });
 
-const supabaseEnabled = process.env.SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 
 export const authOptions: NextAuthOptions = {
   ...(supabaseEnabled &&

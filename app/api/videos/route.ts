@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseServerClient } from "@/lib/supabaseServerClient";
 import { listFeaturedVideos } from "@/lib/videos";
 
-const supabaseEnabled = process.env.SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 
 export async function GET() {
   if (!supabaseEnabled) {

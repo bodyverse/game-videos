@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/types/supabase";
 
-const supabaseEnabled = process.env.SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

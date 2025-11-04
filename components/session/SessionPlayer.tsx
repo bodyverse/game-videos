@@ -18,7 +18,7 @@ type SessionPlayerProps = {
 };
 
 export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps) {
-  if (process.env.NEXT_PUBLIC_SUPABASE_ENABLED === "false") {
+  if (process.env.NEXT_PUBLIC_SUPABASE_ENABLED !== "true") {
     return (
       <div className="space-y-4 rounded-2xl border border-dashed border-white/20 bg-slate-900/60 p-6">
         <h2 className="text-xl font-semibold text-white">Realtime disabled</h2>

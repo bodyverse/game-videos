@@ -2,7 +2,7 @@ import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@/types/supabase";
 
 export function supabaseBrowserClient() {
-  if (process.env.NEXT_PUBLIC_SUPABASE_ENABLED === "false") {
+  if (process.env.NEXT_PUBLIC_SUPABASE_ENABLED !== "true") {
     throw new Error("Supabase browser client requested but Supabase is disabled.");
   }
 

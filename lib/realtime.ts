@@ -1,7 +1,7 @@
 import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/supabase";
 
-const supabaseEnabled = process.env.NEXT_PUBLIC_SUPABASE_ENABLED !== "false";
+const supabaseEnabled = process.env.NEXT_PUBLIC_SUPABASE_ENABLED === "true";
 let singleton: SupabaseClient<Database> | null = null;
 
 function getRealtimeClient() {

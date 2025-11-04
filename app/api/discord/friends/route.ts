@@ -9,10 +9,6 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!supabaseAdmin) {
-    return NextResponse.json({ error: "Supabase is disabled" }, { status: 503 });
-  }
-
   const session = await auth();
   if (!session?.user || !session.discordAccessToken) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -30,6 +26,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "No members returned from Discord" }, { status: 200 });
     }
 
+    const simplifiedMembers = members.map((member) => ({
+      discordId: member.user.id,
+      username: member.user.username,
+      globalName: member.user.global_name ?? null,
+      avatar: member.user.avatar ?? null
+    }));
+
     const upsertPayload = members.map((member) => ({
       user_uid: session.user.id,
       friend_discord_id: member.user.id,
@@ -37,12 +40,17 @@ export async function POST(request: Request) {
       friend_avatar: member.user.avatar ?? null
     }));
 
-    const { error } = await supabaseAdmin
-      .from("friendships")
-      .upsert(upsertPayload, { onConflict: "user_uid,friend_discord_id" });
-    if (error) throw error;
+    if (supabaseAdmin) {
+      const { error } = await supabaseAdmin
+        .from("friendships")
+        .upsert(upsertPayload, { onConflict: "user_uid,friend_discord_id" });
+      if (error) throw error;
+    }
 
-    return NextResponse.json({ synced: upsertPayload.length });
+    return NextResponse.json({
+      synced: supabaseAdmin ? upsertPayload.length : simplifiedMembers.length,
+      members: simplifiedMembers
+    });
   } catch (error) {
     console.error("[discord/friends] sync failed", error);
     return NextResponse.json({ error: "Sync failed" }, { status: 500 });

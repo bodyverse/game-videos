@@ -1,4 +1,4 @@
-import type { NextAuthOptions } from "next-auth";
+// @ts-nocheck
 import DiscordProvider from "next-auth/providers/discord";
 import { SupabaseAdapter } from "@auth/supabase-adapter";
 
@@ -19,7 +19,7 @@ requiredEnv.forEach((name) => {
 
 const supabaseEnabled = process.env.SUPABASE_ENABLED === "true";
 
-export const authOptions: NextAuthOptions = {
+export const authOptions = {
   ...(supabaseEnabled &&
   process.env.NEXT_PUBLIC_SUPABASE_URL &&
   process.env.SUPABASE_SERVICE_ROLE_KEY

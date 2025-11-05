@@ -59,10 +59,8 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
         }
       })
       .on("presence", { event: "sync" }, () => {
-        const state = channel.presenceState<Record<string, { userUid: string }[]>>();
-        const members = Object.values(state)
-          .flat()
-          .map((entry) => entry.userUid);
+        const state = channel.presenceState() as Record<string, { userUid: string }[]>;
+        const members = Object.values(state).flatMap((entries) => entries.map((entry) => entry.userUid));
         setParticipants(Array.from(new Set(members)));
       });
 

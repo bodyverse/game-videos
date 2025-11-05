@@ -21,12 +21,16 @@
     "types": [
       "node",
       "next",
-      "next-auth"
+      "next-auth",
+      "@react-three/fiber"
     ],
     "baseUrl": ".",
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "three-stdlib": [
+        "types/three-stdlib"
       ]
     },
     "plugins": [
@@ -39,7 +43,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"

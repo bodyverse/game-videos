@@ -43,6 +43,16 @@ export default async function WatchSessionPage({ params }: SessionParams) {
     notFound();
   }
 
+  const rawVideo = Array.isArray(data.video) ? data.video[0] : data.video;
+  const video = rawVideo
+    ? {
+        id: String(rawVideo.id),
+        title: String(rawVideo.title ?? ""),
+        playback_url: String(rawVideo.playback_url ?? ""),
+        duration_seconds: Number(rawVideo.duration_seconds ?? 0)
+      }
+    : null;
+
   return (
     <div className="space-y-6">
       <div>
@@ -51,8 +61,8 @@ export default async function WatchSessionPage({ params }: SessionParams) {
           Status: <span className="uppercase tracking-wide text-brand-300">{data.status}</span>
         </p>
       </div>
-      {data.video ? (
-        <SessionPlayer sessionId={data.id} video={data.video} userUid={session.user.id} />
+      {video ? (
+        <SessionPlayer sessionId={data.id} video={video} userUid={session.user.id} />
       ) : (
         <div className="rounded-2xl border border-dashed border-white/20 p-12 text-center text-slate-400">
           This session has no video linked yet.

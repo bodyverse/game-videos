@@ -1,7 +1,18 @@
 import path from "path";
 import { promises as fs } from "fs";
-import type { FeedAvatarConfig } from "@/components/feed/FeedClient";
 import { FeedClient } from "@/components/feed/FeedClient";
+
+type FeedAvatarConfig = {
+  modelPath: string;
+  idleBlendshapes: Record<string, number>;
+  reactions: Record<
+    string,
+    {
+      blendshapes: Record<string, number>;
+      duration: number;
+    }
+  >;
+};
 
 const avatarPresets: FeedAvatarConfig[] = [
   {

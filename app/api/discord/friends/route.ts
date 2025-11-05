@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { fetchGuildMembers } from "@/lib/discord";
 import { supabaseAdmin } from "@/lib/supabaseServerClient";
+import type { Database } from "@/types/supabase";
 
 const bodySchema = z.object({
   guildId: z.string()
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       avatar: member.user.avatar ?? null
     }));
 
-    const upsertPayload = members.map((member) => ({
+    const upsertPayload: Database["public"]["Tables"]["friendships"]["Insert"][] = members.map((member) => ({
       user_uid: session.user.id,
       friend_discord_id: member.user.id,
       friend_username: member.user.username,
@@ -43,7 +44,10 @@ export async function POST(request: Request) {
     if (supabaseAdmin) {
       const { error } = await supabaseAdmin
         .from("friendships")
-        .upsert(upsertPayload, { onConflict: "user_uid,friend_discord_id" });
+        // @ts-ignore: Supabase typing struggles with inferred insert payload
+        .upsert(upsertPayload, {
+          onConflict: "user_uid,friend_discord_id"
+        });
       if (error) throw error;
     }
 

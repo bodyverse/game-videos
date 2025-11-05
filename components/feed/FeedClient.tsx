@@ -28,6 +28,7 @@ export function FeedClient({ videos }: FeedClientProps) {
   }, [videos]);
 
   const [loveCounts, setLoveCounts] = useState<Map<string, number>>(initialCounts);
+
   const registerVideo = useCallback((id: string, node: HTMLVideoElement | null) => {
     const map = videoElements.current;
     if (!node) {
@@ -65,7 +66,12 @@ export function FeedClient({ videos }: FeedClientProps) {
 
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
             video.play().catch(() => {
-              /* autoplay blocked */
+              if (!video.muted) {
+                video.muted = true;
+                video.play().catch(() => {
+                  /* autoplay blocked even when muted */
+                });
+              }
             });
           } else {
             video.pause();
@@ -126,7 +132,17 @@ type FeedVideoCardProps = {
   registerCard: (id: string, node: HTMLElement | null) => void;
 };
 
-function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay, onCloseOverlay, registerVideo, registerCard }: FeedVideoCardProps) {
+function FeedVideoCard({
+  video,
+  index,
+  loves,
+  onLove,
+  overlayOpen,
+  onOpenOverlay,
+  onCloseOverlay,
+  registerVideo,
+  registerCard
+}: FeedVideoCardProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const pointerDataRef = useRef<{
     x: number;
@@ -138,6 +154,7 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlayOverlay, setShowPlayOverlay] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -145,6 +162,7 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
 
     setControlsVisible(videoEl.paused);
     setIsPlaying(!videoEl.paused);
+    videoEl.muted = isMuted;
 
     const handlePlay = () => {
       setIsPlaying(true);
@@ -162,7 +180,7 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
       videoEl.removeEventListener("play", handlePlay);
       videoEl.removeEventListener("pause", handlePause);
     };
-  }, []);
+  }, [isMuted]);
 
   useEffect(() => {
     if (isPlaying) {
@@ -194,11 +212,29 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
     const videoEl = videoRef.current;
     if (!videoEl) return;
 
+    videoEl.muted = isMuted;
     if (videoEl.paused) {
       void videoEl.play();
     } else {
       videoEl.pause();
     }
+  }, [isMuted]);
+
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      const videoEl = videoRef.current;
+      if (videoEl) {
+        videoEl.muted = next;
+        if (!next) {
+          void videoEl.play().catch(() => {
+            videoEl.muted = true;
+            setIsMuted(true);
+          });
+        }
+      }
+      return next;
+    });
   }, []);
 
   return (
@@ -254,7 +290,6 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
         playsInline
         preload="metadata"
         loop
-        muted
         autoPlay={index === 0}
         controls={controlsVisible}
         className="h-full w-full object-cover"
@@ -275,6 +310,17 @@ function FeedVideoCard({ video, index, loves, onLove, overlayOpen, onOpenOverlay
       ) : null}
 
       <div className="pointer-events-auto absolute bottom-24 right-6 flex flex-col items-center gap-4">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleMute();
+          }}
+          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white shadow-lg shadow-brand-500/30 transition hover:bg-white/25"
+        >
+          {isMuted ? "🔇" : "🔊"}
+          <span className="sr-only">{isMuted ? "Unmute video" : "Mute video"}</span>
+        </button>
         <button
           type="button"
           onClick={(event) => {

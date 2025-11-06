@@ -2,7 +2,7 @@
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Html, OrbitControls, useGLTF, useAnimations } from "@react-three/drei";
-import { Suspense, useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useAvatarCameraStore } from "@/stores/avatarCameraStore";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -256,6 +256,8 @@ function AvatarLayer({
   className
 }: AvatarLayerProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const [holdShift, setHoldShift] = useState(false);
+  const holdShiftRef = useRef(holdShift);
   const setCameraFromOrbit = useAvatarCameraStore((state) => state.setFromOrbit);
   const ambientIntensity = 0.45;
   const keyLightIntensity = 1.25;
@@ -268,26 +270,71 @@ function AvatarLayer({
   useEffect(() => {
     if (!controls || typeof window === "undefined") return;
 
-    const applyMapping = () => {
-      const instance = controlsRef.current;
-      if (!instance) return false;
-      instance.mouseButtons.LEFT = THREE.MOUSE.PAN;
-      instance.mouseButtons.RIGHT = THREE.MOUSE.PAN;
-      instance.enablePan = true;
-      instance.enableRotate = true;
-      return true;
+    const updateShift = (pressed: boolean) => {
+      if (holdShiftRef.current === pressed) return;
+      holdShiftRef.current = pressed;
+      setHoldShift(pressed);
     };
 
-    if (applyMapping()) return;
-
-    let frame = 0;
-    const loop = () => {
-      if (!applyMapping()) {
-        frame = window.requestAnimationFrame(loop);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        updateShift(true);
       }
     };
-    frame = window.requestAnimationFrame(loop);
-    return () => window.cancelAnimationFrame(frame);
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Shift") {
+        updateShift(false);
+      }
+    };
+
+    const handleWindowBlur = () => updateShift(false);
+    const handlePointer = (event: PointerEvent) => {
+      updateShift(event.shiftKey);
+    };
+    const handlePointerEnd = () => updateShift(false);
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+    window.addEventListener("blur", handleWindowBlur);
+
+    let domElement: HTMLElement | null = null;
+    let frame = 0;
+
+    const attachPointerListeners = () => {
+      const element = controlsRef.current?.domElement ?? null;
+      if (!element) {
+        frame = window.requestAnimationFrame(attachPointerListeners);
+        return;
+      }
+
+      domElement = element;
+      element.addEventListener("pointerdown", handlePointer, true);
+      element.addEventListener("pointermove", handlePointer, true);
+      element.addEventListener("pointerup", handlePointerEnd, true);
+      element.addEventListener("pointercancel", handlePointerEnd, true);
+      element.addEventListener("pointerleave", handlePointerEnd, true);
+    };
+
+    attachPointerListeners();
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+      window.removeEventListener("blur", handleWindowBlur);
+
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+
+      if (domElement) {
+        domElement.removeEventListener("pointerdown", handlePointer, true);
+        domElement.removeEventListener("pointermove", handlePointer, true);
+        domElement.removeEventListener("pointerup", handlePointerEnd, true);
+        domElement.removeEventListener("pointercancel", handlePointerEnd, true);
+        domElement.removeEventListener("pointerleave", handlePointerEnd, true);
+      }
+    };
   }, [controls]);
 
   const handleOrbitEnd = useCallback(
@@ -353,6 +400,7 @@ function AvatarLayer({
             <OrbitControls
               ref={controlsRef}
               enableZoom
+              zoomSpeed={0.4}
               enablePan
               enableRotate
               minDistance={0.6}
@@ -363,13 +411,13 @@ function AvatarLayer({
               target={cameraTarget}
               onEnd={handleOrbitEnd}
               screenSpacePanning
-              mouseButtons={{
-                LEFT: THREE.MOUSE.PAN,
-                MIDDLE: THREE.MOUSE.DOLLY,
-                RIGHT: THREE.MOUSE.PAN
-              }}
+              // mouseButtons={{
+              //   LEFT: holdShift ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN,
+              //   MIDDLE: THREE.MOUSE.DOLLY,
+              //   RIGHT: THREE.MOUSE.PAN
+              // }}
               touches={{
-                ONE: TOUCH.PAN,
+                ONE: !holdShift ? TOUCH.ROTATE : TOUCH.PAN,
                 TWO: TOUCH.DOLLY_PAN
               }}
             />

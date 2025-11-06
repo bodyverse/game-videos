@@ -1,8 +1,10 @@
 import { create } from "zustand";
 
+export type ReactionKind = "laugh" | "cry" | "fire" | "wow";
+
 export type ReactionEvent = {
   id: string;
-  emoji: string;
+  emoji: ReactionKind;
   userUid: string;
   timestamp: number;
 };

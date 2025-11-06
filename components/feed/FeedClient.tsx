@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
+import { IconPlay, IconReaction, IconThumbDown, IconThumbUp } from "@/components/icons";
+import { FeedActionStack } from "./ActionStack";
 
 export type FeedVideo = {
   id: string;
@@ -20,14 +22,29 @@ export function FeedClient({ videos }: FeedClientProps) {
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   const initialCounts = useMemo(() => {
-    const counts = new Map<string, number>();
+    const counts = new Map<string, { up: number; down: number }>();
     videos.forEach((video, index) => {
-      counts.set(video.id, 120 + index * 17);
+      counts.set(video.id, {
+        up: 120 + index * 17,
+        down: 12 + index * 5
+      });
     });
     return counts;
   }, [videos]);
 
-  const [loveCounts, setLoveCounts] = useState<Map<string, number>>(initialCounts);
+  const [voteCounts, setVoteCounts] = useState<Map<string, { up: number; down: number }>>(initialCounts);
+  const [activeVideoId, setActiveVideoId] = useState<string | null>(videos[0]?.id ?? null);
+  const handleVote = useCallback((id: string, type: "up" | "down") => {
+    setVoteCounts((prev) => {
+      const next = new Map(prev);
+      const current = next.get(id) ?? { up: 0, down: 0 };
+      next.set(id, {
+        ...current,
+        [type]: current[type] + 1
+      });
+      return next;
+    });
+  }, [setActiveVideoId]);
 
   const registerVideo = useCallback((id: string, node: HTMLVideoElement | null) => {
     const map = videoElements.current;
@@ -56,6 +73,21 @@ export function FeedClient({ videos }: FeedClientProps) {
   }, []);
 
   useEffect(() => {
+    setActiveVideoId((prev) => {
+      if (prev && videos.some((video) => video.id === prev)) {
+        return prev;
+      }
+      return videos[0]?.id ?? null;
+    });
+  }, [videos]);
+
+  useEffect(() => {
+    if (activeOverlay && activeOverlay !== activeVideoId) {
+      setActiveOverlay(null);
+    }
+  }, [activeOverlay, activeVideoId]);
+
+  useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -65,6 +97,7 @@ export function FeedClient({ videos }: FeedClientProps) {
           if (!video) return;
 
           if (entry.isIntersecting && entry.intersectionRatio >= 0.6) {
+            setActiveVideoId((prev) => (prev === id ? prev : id));
             video.play().catch(() => {
               if (!video.muted) {
                 video.muted = true;
@@ -90,43 +123,67 @@ export function FeedClient({ videos }: FeedClientProps) {
     };
   }, []);
 
-  const handleLove = (id: string) => {
-    setLoveCounts((prev) => {
-      const next = new Map(prev);
-      next.set(id, (next.get(id) ?? 0) + 1);
-      return next;
-    });
-  };
-
   return (
-    <div className="relative flex h-full min-h-screen w-full overflow-hidden bg-black">
-      <div className="flex snap-x snap-mandatory gap-0 overflow-x-auto touch-pan-x">
-        {videos.map((video, index) => (
-          <FeedVideoCard
-            key={video.id}
-            video={video}
-            index={index}
-            loves={loveCounts.get(video.id) ?? 0}
-            onLove={() => handleLove(video.id)}
-            overlayOpen={activeOverlay === video.id}
-            onOpenOverlay={() => setActiveOverlay(video.id)}
-            onCloseOverlay={() => setActiveOverlay(null)}
-            registerVideo={registerVideo}
-            registerCard={registerCard}
-          />
-        ))}
+    <>
+      <div className="relative flex h-full min-h-screen w-full overflow-hidden bg-black">
+        <div className="flex snap-x snap-mandatory gap-0 overflow-x-auto touch-pan-x">
+          {videos.map((video, index) => (
+            <FeedVideoCard
+              key={video.id}
+              video={video}
+              index={index}
+              overlayOpen={activeOverlay === video.id}
+              onCloseOverlay={() => setActiveOverlay(null)}
+              registerVideo={registerVideo}
+              registerCard={registerCard}
+            />
+          ))}
+        </div>
       </div>
-    </div>
+      <FeedActionStack
+        key={activeVideoId ?? "none"}
+        position="center"
+        direction="column"
+        className={`fixed right-6 z-50 gap-6 transition-all duration-200 ${
+          activeVideoId ? "pointer-events-auto opacity-100 scale-100" : "pointer-events-none opacity-0 scale-90"
+        }`}
+      >
+        <FeedActionStack.Button
+          icon={<IconReaction size={23} />}
+          label="Open reactions overlay"
+          onClick={() => {
+            if (activeVideoId) {
+              setActiveOverlay(activeVideoId);
+            }
+          }}
+        />
+        <FeedActionStack.Button
+          icon={<IconThumbUp size={23} />}
+          label="Thumbs up"
+          onClick={() => {
+            if (activeVideoId) {
+              handleVote(activeVideoId, "up");
+            }
+          }}
+        />
+        <FeedActionStack.Button
+          icon={<IconThumbDown size={23} />}
+          label="Thumbs down"
+          onClick={() => {
+            if (activeVideoId) {
+              handleVote(activeVideoId, "down");
+            }
+          }}
+        />
+      </FeedActionStack>
+    </>
   );
 }
 
 type FeedVideoCardProps = {
   video: FeedVideo;
   index: number;
-  loves: number;
-  onLove: () => void;
   overlayOpen: boolean;
-  onOpenOverlay: () => void;
   onCloseOverlay: () => void;
   registerVideo: (id: string, node: HTMLVideoElement | null) => void;
   registerCard: (id: string, node: HTMLElement | null) => void;
@@ -135,10 +192,7 @@ type FeedVideoCardProps = {
 function FeedVideoCard({
   video,
   index,
-  loves,
-  onLove,
   overlayOpen,
-  onOpenOverlay,
   onCloseOverlay,
   registerVideo,
   registerCard
@@ -154,7 +208,7 @@ function FeedVideoCard({
   const [controlsVisible, setControlsVisible] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPlayOverlay, setShowPlayOverlay] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -162,7 +216,7 @@ function FeedVideoCard({
 
     setControlsVisible(videoEl.paused);
     setIsPlaying(!videoEl.paused);
-    videoEl.muted = isMuted;
+    videoEl.muted = false;
 
     const handlePlay = () => {
       setIsPlaying(true);
@@ -180,7 +234,7 @@ function FeedVideoCard({
       videoEl.removeEventListener("play", handlePlay);
       videoEl.removeEventListener("pause", handlePause);
     };
-  }, [isMuted]);
+  }, []);
 
   useEffect(() => {
     if (isPlaying) {
@@ -198,6 +252,11 @@ function FeedVideoCard({
   useEffect(() => {
     const videoEl = videoRef.current;
     registerVideo(video.id, videoEl);
+    if (videoEl) {
+      videoEl.muted = false;
+      videoEl.pause();
+      videoEl.currentTime = 0;
+    }
     return () => registerVideo(video.id, null);
   }, [registerVideo, video.id]);
 
@@ -208,34 +267,27 @@ function FeedVideoCard({
     [registerCard, video.id]
   );
 
-  const togglePlayback = useCallback(() => {
-    const videoEl = videoRef.current;
-    if (!videoEl) return;
-
-    videoEl.muted = isMuted;
-    if (videoEl.paused) {
-      void videoEl.play();
-    } else {
-      videoEl.pause();
-    }
-  }, [isMuted]);
-
-  const toggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
+  const togglePlayback = useCallback(
+    (options?: { forcePlay?: boolean }) => {
       const videoEl = videoRef.current;
-      if (videoEl) {
-        videoEl.muted = next;
-        if (!next) {
-          void videoEl.play().catch(() => {
-            videoEl.muted = true;
-            setIsMuted(true);
-          });
-        }
+      if (!videoEl) return;
+
+      if (options?.forcePlay) {
+        videoEl.muted = false;
+        videoEl.currentTime = Math.max(videoEl.currentTime, 0);
+        videoEl.play().catch(() => { });
+        return;
       }
-      return next;
-    });
-  }, []);
+
+      if (videoEl.paused) {
+        videoEl.muted = false;
+        void videoEl.play();
+      } else {
+        videoEl.pause();
+      }
+    },
+    []
+  );
 
   return (
     <article
@@ -275,7 +327,12 @@ function FeedVideoCard({
         if (data && data.pointerId === event.pointerId && data.isTap) {
           const delta = performance.now() - data.timestamp;
           if (delta < 250) {
-            togglePlayback();
+            if (!hasInteracted) {
+              setHasInteracted(true);
+              togglePlayback({ forcePlay: true });
+            } else {
+              togglePlayback();
+            }
           }
         }
         pointerDataRef.current = null;
@@ -290,7 +347,7 @@ function FeedVideoCard({
         playsInline
         preload="metadata"
         loop
-        autoPlay={index === 0}
+        autoPlay={false}
         controls={controlsVisible}
         className="h-full w-full object-cover"
       />
@@ -300,52 +357,19 @@ function FeedVideoCard({
           type="button"
           onClick={(event) => {
             event.stopPropagation();
-            togglePlayback();
+            if (!hasInteracted) {
+              setHasInteracted(true);
+              togglePlayback({ forcePlay: true });
+            } else {
+              togglePlayback();
+            }
           }}
           className="pointer-events-auto absolute inset-0 m-auto flex h-20 w-20 items-center justify-center rounded-full bg-black/60 text-white shadow-2xl backdrop-blur transition hover:bg-black/80"
         >
-          ▶
+          <IconPlay size={34} />
           <span className="sr-only">Play</span>
         </button>
       ) : null}
-
-      <div className="pointer-events-auto absolute bottom-24 right-6 flex flex-col items-center gap-4">
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            toggleMute();
-          }}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white shadow-lg shadow-brand-500/30 transition hover:bg-white/25"
-        >
-          {isMuted ? "🔇" : "🔊"}
-          <span className="sr-only">{isMuted ? "Unmute video" : "Mute video"}</span>
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onOpenOverlay();
-          }}
-          className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white shadow-lg shadow-brand-500/50 transition hover:bg-white/25"
-        >
-          ⚡️
-          <span className="sr-only">Open reactions overlay</span>
-        </button>
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onLove();
-          }}
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-brand-500 text-white shadow-lg shadow-brand-500/40 transition hover:bg-brand-400"
-        >
-          <span className="text-2xl">❤</span>
-          <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
-            {loves}
-          </span>
-        </button>
-      </div>
 
       {overlayOpen ? (
         <div

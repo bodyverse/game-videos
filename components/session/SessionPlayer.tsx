@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { nanoid } from "nanoid";
 import { sessionChannel } from "@/lib/realtime";
+import { IconBurst, IconFlame, IconLaugh, IconTear } from "@/components/icons";
 import { useSessionStore } from "@/stores/sessionStore";
+import type { ReactionKind } from "@/stores/sessionStore";
 
 type SessionPlayerProps = {
   sessionId: string;
@@ -34,6 +36,33 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
   const channelRef = useRef<RealtimeChannel | null>(null);
   const { isPlaying, currentTime, reactions, participants, setPlaying, setCurrentTime, addReaction, setParticipants } =
     useSessionStore();
+
+  const reactionOptions = useMemo(
+    () => [
+      { key: "laugh" as ReactionKind, label: "Laugh", Icon: IconLaugh },
+      { key: "cry" as ReactionKind, label: "Cry", Icon: IconTear },
+      { key: "fire" as ReactionKind, label: "Fire", Icon: IconFlame },
+      { key: "wow" as ReactionKind, label: "Wow", Icon: IconBurst }
+    ],
+    []
+  );
+
+  const reactionIconByKey = useMemo(
+    () =>
+      reactionOptions.reduce<Record<ReactionKind, (typeof IconLaugh)>>(
+        (acc, option) => {
+          acc[option.key] = option.Icon;
+          return acc;
+        },
+        {
+          laugh: IconLaugh,
+          cry: IconTear,
+          fire: IconFlame,
+          wow: IconBurst
+        }
+      ),
+    [reactionOptions]
+  );
 
   useEffect(() => {
     const channel = sessionChannel(sessionId);
@@ -89,11 +118,11 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
   );
 
   const handleReaction = useCallback(
-    (emoji: string) => {
+    (reactionType: ReactionKind) => {
       const channel = channelRef.current;
       const reaction = {
         id: nanoid(),
-        emoji,
+        emoji: reactionType,
         userUid,
         timestamp: Date.now()
       };
@@ -106,11 +135,12 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
       <section className="space-y-4">
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl">
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-black shadow-2xl">
           <video
             ref={videoRef}
             src={video.playback_url}
             controls
+            playsInline
             className="w-full"
             onPlay={() => {
               setPlaying(true);
@@ -131,14 +161,15 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
             </p>
           </div>
           <div className="flex gap-2">
-            {["😂", "😭", "🔥", "🤯"].map((emoji) => (
+            {reactionOptions.map(({ key, label, Icon }) => (
               <button
-                key={emoji}
+                key={key}
                 type="button"
-                className="h-10 w-10 rounded-full border border-white/10 bg-white/5 text-lg transition hover:border-white/40"
-                onClick={() => handleReaction(emoji)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 transition hover:border-white/40"
+                onClick={() => handleReaction(key)}
               >
-                {emoji}
+                <Icon size={20} />
+                <span className="sr-only">{label}</span>
               </button>
             ))}
           </div>
@@ -163,14 +194,22 @@ export function SessionPlayer({ sessionId, video, userUid }: SessionPlayerProps)
           <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">Live reactions</h3>
           <ul className="mt-3 space-y-2 text-sm text-slate-200">
             {reactions.length === 0 ? (
-              <li className="text-slate-400">No reactions yet. Tap an emoji to send one.</li>
+              <li className="text-slate-400">No reactions yet. Tap a reaction to send one.</li>
             ) : (
-              reactions.map((event) => (
-                <li key={event.id} className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2">
-                  <span>{event.emoji}</span>
-                  <span className="text-xs text-slate-400">{event.userUid === userUid ? "You" : event.userUid}</span>
-                </li>
-              ))
+              reactions.map((event) => {
+                const ReactionIcon = reactionIconByKey[event.emoji];
+                return (
+                  <li
+                    key={event.id}
+                    className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-3 py-2"
+                  >
+                    <ReactionIcon size={18} />
+                    <span className="text-xs text-slate-400">
+                      {event.userUid === userUid ? "You" : event.userUid}
+                    </span>
+                  </li>
+                );
+              })
             )}
           </ul>
         </div>

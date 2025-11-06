@@ -15,12 +15,16 @@ type AvatarCameraState = {
   setFov: (value: number) => void;
   setControlsEnabled: (enabled: boolean) => void;
   setFromOrbit: (camera: PerspectiveCamera, target: Vector3Tuple) => void;
+  setStaticView: () => void;
   reset: () => void;
 };
 
 const DEFAULT_POSITION: Vector3Tuple = [0, 1.45, 2.1];
 const DEFAULT_TARGET: Vector3Tuple = [0, 1.25, 0];
 const DEFAULT_FOV = 42;
+const STATIC_POSITION: Vector3Tuple = [0, 1.6, 2.8];
+const STATIC_TARGET: Vector3Tuple = [0, 1.35, 0];
+const STATIC_FOV = 38;
 
 export const useAvatarCameraStore = create<AvatarCameraState>()(
   persist(
@@ -42,6 +46,13 @@ export const useAvatarCameraStore = create<AvatarCameraState>()(
           position: [camera.position.x, camera.position.y, camera.position.z],
           target,
           fov: camera.fov
+        })),
+      setStaticView: () =>
+        set((state) => ({
+          position: STATIC_POSITION,
+          target: STATIC_TARGET,
+          fov: STATIC_FOV,
+          controlsEnabled: state.controlsEnabled
         })),
       reset: () =>
         set({

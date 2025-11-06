@@ -20,6 +20,7 @@ export function FeedClient({ videos }: FeedClientProps) {
   const videoElements = useRef<Map<string, HTMLVideoElement>>(new Map());
   const cardElements = useRef<Map<string, HTMLElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   const initialCounts = useMemo(() => {
     const counts = new Map<string, { up: number; down: number }>();
@@ -123,10 +124,149 @@ export function FeedClient({ videos }: FeedClientProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    let pointerId: number | null = null;
+    let startX = 0;
+    let scrollStart = 0;
+    let lastDeltaFromStart = 0;
+    let isDragging = false;
+    let dragStarted = false;
+    let animationFrame = 0;
+
+    const stopAnimation = () => {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+    };
+
+    const restoreSnap = () => {
+      container.style.removeProperty("scroll-snap-type");
+    };
+
+    const animateTo = (target: number) => {
+      stopAnimation();
+      const from = container.scrollLeft;
+      const distance = target - from;
+      if (Math.abs(distance) < 1) {
+        container.scrollLeft = target;
+        restoreSnap();
+        return;
+      }
+      const duration = 260;
+      const startTime = performance.now();
+      const easeOutCubic = (t: number) => 1 - Math.pow(1 - t, 3);
+
+      const step = (now: number) => {
+        const t = Math.min((now - startTime) / duration, 1);
+        container.scrollLeft = from + distance * easeOutCubic(t);
+        if (t < 1) {
+          animationFrame = requestAnimationFrame(step);
+        } else {
+          restoreSnap();
+        }
+      };
+
+      animationFrame = requestAnimationFrame(step);
+    };
+
+    const snapToNearest = (deltaFromStart: number) => {
+      const width = container.clientWidth || 1;
+      const totalSlides = container.children.length;
+      const rawIndex = container.scrollLeft / width;
+      let targetIndex = Math.round(rawIndex);
+
+      const threshold = width * 0.15;
+      if (Math.abs(deltaFromStart) > threshold) {
+        targetIndex = deltaFromStart > 0 ? Math.floor(rawIndex) : Math.ceil(rawIndex);
+      }
+
+      targetIndex = Math.max(0, Math.min(targetIndex, totalSlides - 1));
+      const target = targetIndex * width;
+      animateTo(target);
+    };
+
+    const cleanupPointer = () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
+    };
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("button, a, [data-prevent-drag]")) return;
+
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      scrollStart = container.scrollLeft;
+      lastDeltaFromStart = 0;
+      isDragging = false;
+      dragStarted = false;
+      stopAnimation();
+      container.style.scrollSnapType = "none";
+
+      window.addEventListener("pointermove", handlePointerMove);
+      window.addEventListener("pointerup", handlePointerEnd);
+      window.addEventListener("pointercancel", handlePointerEnd);
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      const deltaFromStart = event.clientX - startX;
+
+      if (!dragStarted) {
+        if (Math.abs(deltaFromStart) < 6) {
+          return;
+        }
+        dragStarted = true;
+      }
+
+      if (!isDragging) {
+        isDragging = true;
+        container.classList.add("cursor-grabbing");
+      }
+
+      event.preventDefault();
+      container.scrollLeft = scrollStart - deltaFromStart;
+      lastDeltaFromStart = deltaFromStart;
+    };
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      cleanupPointer();
+      container.classList.remove("cursor-grabbing");
+
+      if (isDragging) {
+        snapToNearest(lastDeltaFromStart);
+      } else {
+        restoreSnap();
+      }
+
+      pointerId = null;
+      isDragging = false;
+      dragStarted = false;
+      lastDeltaFromStart = 0;
+    };
+
+    container.addEventListener("pointerdown", handlePointerDown, { passive: true });
+
+    return () => {
+      container.removeEventListener("pointerdown", handlePointerDown);
+      cleanupPointer();
+      stopAnimation();
+      restoreSnap();
+    };
+  }, []);
+
   return (
     <>
       <div className="relative flex h-full min-h-screen w-full overflow-hidden bg-black">
-        <div className="flex snap-x snap-mandatory gap-0 overflow-x-auto touch-pan-x">
+        <div
+          ref={scrollContainerRef}
+          className="flex snap-x snap-mandatory gap-0 overflow-x-auto touch-pan-x cursor-grab"
+        >
           {videos.map((video, index) => (
             <FeedVideoCard
               key={video.id}

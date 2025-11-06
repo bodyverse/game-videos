@@ -187,7 +187,13 @@ async function loadVideos() {
       throw new Error("No video files in public/videos");
     }
 
-    return mp4s.map((file, index) => {
+    const shuffled = [...mp4s];
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+
+    return shuffled.map((file, index) => {
       const base = file.replace(/_/g, " ").replace(/\.[^.]+$/, "");
       const title = base.length > 48 ? `${base.slice(0, 45)}…` : base;
       const avatar = avatarPresets[index % avatarPresets.length];

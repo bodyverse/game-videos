@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, lazy } from "react";
-import type { AvatarLayerProps, AvatarReaction } from "./AvatarLayerInner";
+import type { AvatarLayerProps } from "./AvatarLayerInner";
 
 const LazyAvatarLayer = lazy(async () => {
   const reactModule = await import("react");
@@ -27,7 +27,7 @@ const LazyAvatarLayer = lazy(async () => {
   return import("./AvatarLayerInner");
 });
 
-export type { AvatarLayerProps, AvatarReaction } from "./AvatarLayerInner";
+export type { AvatarLayerProps } from "./AvatarLayerInner";
 
 export function AvatarLayer(props: AvatarLayerProps) {
   return (

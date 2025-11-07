@@ -1,11 +1,14 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Environment, Html, OrbitControls, useGLTF, useAnimations } from "@react-three/drei";
+import { Environment, Html, OrbitControls } from "@react-three/drei";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useAvatarCameraStore } from "@/stores/avatarCameraStore";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { AvatarModel } from "@/components/avatar/AvatarModel";
+import { AvatarScenePlayer } from "@/components/reactions/AvatarScenePlayer";
+import { useAvatarReactionStore } from "@/stores/avatarReactionStore";
 
 type TouchMapping = {
   ROTATE: number;
@@ -25,19 +28,10 @@ const TOUCH: TouchMapping =
 type Vector3Tuple = [number, number, number];
 const DEFAULT_TARGET: Vector3Tuple = [0, 1.25, 0];
 
-export type AvatarReaction = {
-  key: string;
-  animation?: string;
-  blendshapes?: Record<string, number>;
-  duration?: number;
-};
-
 export type AvatarLayerProps = {
   modelPath: string;
-  animation?: string | null;
-  reaction?: AvatarReaction | null;
-  blendshapes?: Record<string, number>;
-  onReactionComplete?: () => void;
+  animationUrl?: string | null;
+  visible?: boolean;
   camera?: {
     position?: Vector3Tuple;
     target?: Vector3Tuple;
@@ -46,157 +40,6 @@ export type AvatarLayerProps = {
   controls?: boolean;
   className?: string;
 };
-
-function AvatarModel({
-  modelPath,
-  animation,
-  reaction,
-  blendshapes,
-  onReactionComplete
-}: {
-  modelPath: string;
-  animation?: string | null;
-  reaction?: AvatarReaction | null;
-  blendshapes?: Record<string, number>;
-  onReactionComplete?: () => void;
-}) {
-  const { scene, animations } = useGLTF(modelPath, true);
-  const group = useRef<THREE.Group>(null);
-  const clonedScene = useMemo(() => scene.clone(true), [scene]);
-  const { actions, names } = useAnimations(animations, group);
-
-  useEffect(() => {
-    const box = new THREE.Box3().setFromObject(clonedScene);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
-    clonedScene.position.sub(center);
-
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    const desiredHeight = 1.8;
-    const currentHeight = size.y || 1;
-    const scaleFactor = desiredHeight / currentHeight;
-    clonedScene.scale.setScalar(scaleFactor);
-  }, [clonedScene]);
-
-  useEffect(() => {
-    useGLTF.preload(modelPath, true);
-  }, [modelPath]);
-
-  const morphTargets = useMemo(() => {
-    const candidates: Array<{
-      mesh: THREE.Mesh;
-      dict: { [key: string]: number };
-      influences: number[];
-    }> = [];
-
-    clonedScene.traverse((child: unknown) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        if (mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
-          candidates.push({
-            mesh,
-            dict: mesh.morphTargetDictionary,
-            influences: mesh.morphTargetInfluences
-          });
-        }
-      }
-    });
-
-    return candidates;
-  }, [clonedScene]);
-
-  const applyBlendshapes = useCallback(
-    (weights: Record<string, number>) => {
-      morphTargets.forEach(({ mesh, dict, influences }) => {
-        if (!mesh.morphTargetInfluences) return;
-        for (let i = 0; i < influences.length; i += 1) {
-          mesh.morphTargetInfluences[i] = 0;
-        }
-        Object.entries(weights).forEach(([name, value]) => {
-          const index = dict[name];
-          if (index !== undefined && mesh.morphTargetInfluences) {
-            mesh.morphTargetInfluences[index] = value;
-          }
-        });
-        mesh.morphTargetInfluences = [...mesh.morphTargetInfluences];
-      });
-    },
-    [morphTargets]
-  );
-
-  const baseBlendshapesRef = useRef<Record<string, number>>({});
-
-  useEffect(() => {
-    baseBlendshapesRef.current = blendshapes ?? {};
-    applyBlendshapes(baseBlendshapesRef.current);
-  }, [blendshapes, applyBlendshapes]);
-
-  const baseActionRef = useRef<THREE.AnimationAction | null>(null);
-
-  useEffect(() => {
-    if (!actions) return;
-
-    const fallbackName = animation && actions[animation] ? animation : names[0];
-    if (!fallbackName) return;
-
-    const target = actions[fallbackName];
-    baseActionRef.current = target ?? null;
-
-    Object.values(actions).forEach((act) => act?.stop());
-
-    target?.reset().fadeIn(0.3).play();
-
-    return () => {
-      target?.fadeOut(0.2);
-    };
-  }, [animation, actions, names]);
-
-  useEffect(() => {
-    if (!reaction || !actions) return;
-
-    const baseAction = baseActionRef.current;
-    const reactionName = reaction.animation && actions[reaction.animation] ? reaction.animation : null;
-    const reactionAction = reactionName ? actions[reactionName] : null;
-
-    if (reactionAction) {
-      reactionAction.reset();
-      reactionAction.setLoop(THREE.LoopOnce, 1);
-      reactionAction.clampWhenFinished = true;
-      reactionAction.fadeIn(0.15).play();
-      baseAction?.fadeOut(0.1);
-    }
-
-    if (reaction.blendshapes) {
-      applyBlendshapes({ ...baseBlendshapesRef.current, ...reaction.blendshapes });
-    }
-
-    const timeout = window.setTimeout(() => {
-      if (reactionAction) {
-        reactionAction.fadeOut(0.2);
-        reactionAction.stop();
-      }
-
-      baseAction?.fadeIn(0.3).play();
-      applyBlendshapes(baseBlendshapesRef.current);
-      onReactionComplete?.();
-    }, reaction.duration ?? 1200);
-
-    return () => {
-      window.clearTimeout(timeout);
-      if (reactionAction) {
-        reactionAction.stop();
-      }
-      applyBlendshapes(baseBlendshapesRef.current);
-    };
-  }, [reaction?.key, actions, applyBlendshapes, onReactionComplete]);
-
-  return (
-    <group ref={group} dispose={null}>
-      <primitive object={clonedScene} />
-    </group>
-  );
-}
 
 const CAMERA_LERP = 0.12;
 
@@ -247,10 +90,8 @@ function CameraRig({
 
 function AvatarLayer({
   modelPath,
-  animation,
-  reaction,
-  blendshapes,
-  onReactionComplete,
+  animationUrl,
+  visible = true,
   camera,
   controls = false,
   className
@@ -266,6 +107,17 @@ function AvatarLayer({
   const cameraPosition = camera?.position ?? [0, 1.45, 2.1];
   const cameraTarget = camera?.target ?? DEFAULT_TARGET;
   const cameraFov = camera?.fov ?? 42;
+  const reactionScene = useAvatarReactionStore((state) => state.scenePath);
+  const clearReaction = useAvatarReactionStore((state) => state.clearReaction);
+
+  const handleReactionStateChange = useCallback(
+    (state: { isPlaying: boolean; duration: number; currentTime: number }) => {
+      if (!state.isPlaying && state.duration > 0 && state.currentTime >= state.duration - 0.05) {
+        clearReaction();
+      }
+    },
+    [clearReaction]
+  );
 
   useEffect(() => {
     if (!controls || typeof window === "undefined") return;
@@ -387,13 +239,43 @@ function AvatarLayer({
             color={new THREE.Color("#ffe5ec")}
           />
 
-          <AvatarModel
-            modelPath={modelPath}
-            animation={animation}
-            reaction={reaction}
-            blendshapes={blendshapes}
-            onReactionComplete={onReactionComplete}
-          />
+          {visible ? (
+            <AvatarModel
+              modelPath={modelPath}
+              animationUrl={animationUrl}
+            />
+          ) : null}
+          {reactionScene ? (
+            <Suspense
+              fallback={
+                <Html center>
+                  <p className="rounded-full bg-black/70 px-4 py-2 text-xs text-white/80">Loading reaction…</p>
+                </Html>
+              }
+            >
+              <AvatarScenePlayer
+                scenePath={reactionScene}
+                targetNodeName="Armature"
+                replacement={{ type: "gltf", path: modelPath }}
+                autoplay
+                timeScale={1}
+                onStateChange={handleReactionStateChange}
+              />
+              <Html fullscreen>
+                <div className="pointer-events-none flex h-full w-full items-end justify-center pb-10">
+                  <div className="pointer-events-auto flex flex-col items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={clearReaction}
+                      className="rounded-full border border-white/50 px-6 py-2 text-xs uppercase tracking-wide text-white transition hover:border-white hover:text-white"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </Html>
+            </Suspense>
+          ) : null}
           <CameraRig position={cameraPosition} target={cameraTarget} fov={cameraFov} controlsActive={controls} />
           <Environment preset="city" background={false} />
           {controls ? (

@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { IconPlay, IconReaction, IconThumbDown, IconThumbUp } from "@/components/icons";
+import { useAvatarReactionStore } from "@/stores/avatarReactionStore";
 import { FeedActionStack } from "./ActionStack";
 
 export type FeedVideo = {
@@ -15,12 +17,16 @@ type FeedClientProps = {
   videos: FeedVideo[];
 };
 
+const REACTION_SCENE_PATH = "/reactions/jumping person/RPM_NB_Jet2_Holiday_S_Anim_01.glb";
+
 export function FeedClient({ videos }: FeedClientProps) {
   const [activeOverlay, setActiveOverlay] = useState<string | null>(null);
   const videoElements = useRef<Map<string, HTMLVideoElement>>(new Map());
   const cardElements = useRef<Map<string, HTMLElement>>(new Map());
   const observerRef = useRef<IntersectionObserver | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const queueReaction = useAvatarReactionStore((state) => state.queueReaction);
+  const reactionActive = useAvatarReactionStore((state) => Boolean(state.scenePath));
 
   const initialCounts = useMemo(() => {
     const counts = new Map<string, { up: number; down: number }>();
@@ -296,6 +302,7 @@ export function FeedClient({ videos }: FeedClientProps) {
               setActiveOverlay(activeVideoId);
             }
           }}
+          disabled={reactionActive}
         />
         <FeedActionStack.Button
           icon={<IconThumbUp size={23} />}
@@ -337,6 +344,7 @@ function FeedVideoCard({
   registerVideo,
   registerCard
 }: FeedVideoCardProps) {
+  const queueReaction = useAvatarReactionStore((state) => state.queueReaction);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pointerDataRef = useRef<{
     x: number;
@@ -516,41 +524,24 @@ function FeedVideoCard({
           className="pointer-events-auto fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur"
           onClick={onCloseOverlay}
         >
-          <div
-            className="w-[min(520px,90vw)] space-y-6 rounded-3xl border border-white/10 bg-slate-900/70 p-8 text-left text-white shadow-2xl"
-            onClick={(event) => event.stopPropagation()}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              queueReaction(REACTION_SCENE_PATH);
+              onCloseOverlay();
+            }}
+            className="rounded-3xl border border-white/15 bg-white/5 p-4 transition hover:bg-white/10"
           >
-            <h2 className="text-xl font-semibold">React in style</h2>
-            <p className="text-sm text-slate-300">
-              Send a dramatic reaction, drop into a watch room, or ping a friend to jump into this clip with you.
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {[
-                { label: "Laugh Riot", description: "Spam laugh track & confetti." },
-                { label: "Summon Crew", description: "Invite your top 3 friends." },
-                { label: "Avatar Flair", description: "Trigger avatar emotes." },
-                { label: "Share Clip", description: "Copy + drop in Discord." }
-              ].map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-left text-sm transition hover:bg-white/20"
-                >
-                  <p className="font-medium">{action.label}</p>
-                  <p className="text-xs text-slate-300">{action.description}</p>
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onCloseOverlay}
-                className="rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/25"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+            <Image
+              src="/images/reactions/ReactionJumping.png"
+              alt="Jumping reaction"
+              width={220}
+              height={220}
+              className="h-48 w-48 rounded-[3px] object-cover"
+              priority
+            />
+          </button>
         </div>
       ) : null}
     </article>

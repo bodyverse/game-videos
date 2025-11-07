@@ -1,4 +1,4 @@
-import type { PerspectiveCamera } from "three";
+import type { PerspectiveCamera, Object3D, AnimationClip } from "three";
 
 declare class OrbitControls {
   object: PerspectiveCamera;
@@ -11,5 +11,10 @@ declare class OrbitControls {
   removeEventListener(event: string, handler: (...args: unknown[]) => void): void;
 }
 
-export { OrbitControls };
+declare const SkeletonUtils: {
+  clone<T extends Object3D>(source: T): T;
+  retargetClip(target: Object3D, source: Object3D, clip: AnimationClip): AnimationClip;
+};
+
+export { OrbitControls, SkeletonUtils };
 export default OrbitControls;

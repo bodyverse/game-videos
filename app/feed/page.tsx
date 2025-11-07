@@ -1,6 +1,7 @@
 import path from "path";
 import { promises as fs } from "fs";
 import { FeedClient } from "@/components/feed/FeedClient";
+import { AvatarSingleton } from "@/components/avatar/AvatarSingleton";
 
 type FeedAvatarConfig = {
   modelPath: string;
@@ -233,6 +234,7 @@ export default async function FeedPage() {
 
   return (
     <main className="min-h-screen bg-black text-white">
+      <AvatarSingleton />
       <FeedClient videos={videos} />
     </main>
   );

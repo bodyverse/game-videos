@@ -158,3 +158,13 @@ export const IconReaction = createIcon(
     <path d="m7.3 16.7 1.1-1.1" />
   </>
 );
+
+export const IconPlayerPlay = IconPlay;
+export const IconPlayerPause = createIcon(
+  <>
+    <rect x="7" y="5" width="3" height="14" rx="1" />
+    <rect x="14" y="5" width="3" height="14" rx="1" />
+  </>
+);
+export const IconPlayerStop = createIcon(<rect x="6" y="6" width="12" height="12" rx="1.5" />);
+export const IconChevronDown = createIcon(<polyline points="6 9 12 15 18 9" />);

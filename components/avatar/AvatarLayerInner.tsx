@@ -27,6 +27,8 @@ const TOUCH: TouchMapping =
 
 type Vector3Tuple = [number, number, number];
 const DEFAULT_TARGET: Vector3Tuple = [0, 1.25, 0];
+const REACTION_AUDIO_PATH = "/music/Nothing beats a Jet 2.wav";
+const LOOP_ONCE = (THREE as unknown as { LoopOnce?: number }).LoopOnce ?? 2200;
 
 export type AvatarLayerProps = {
   modelPath: string;
@@ -109,6 +111,7 @@ function AvatarLayer({
   const cameraFov = camera?.fov ?? 42;
   const reactionScene = useAvatarReactionStore((state) => state.scenePath);
   const clearReaction = useAvatarReactionStore((state) => state.clearReaction);
+  const showAvatar = visible && !reactionScene;
 
   const handleReactionStateChange = useCallback(
     (state: { isPlaying: boolean; duration: number; currentTime: number }) => {
@@ -239,7 +242,7 @@ function AvatarLayer({
             color={new THREE.Color("#ffe5ec")}
           />
 
-          {visible ? (
+          {showAvatar ? (
             <AvatarModel
               modelPath={modelPath}
               animationUrl={animationUrl}
@@ -260,6 +263,8 @@ function AvatarLayer({
                 autoplay
                 timeScale={1}
                 onStateChange={handleReactionStateChange}
+                audioUrl={REACTION_AUDIO_PATH}
+                loopMode={LOOP_ONCE}
               />
               <Html fullscreen>
                 <div className="pointer-events-none flex h-full w-full items-end justify-center pb-10">

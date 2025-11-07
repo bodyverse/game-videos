@@ -63,6 +63,15 @@ declare module "three" {
     morphTargetInfluences?: number[];
   }
 
+  export class Skeleton {
+    bones: Object3D[];
+  }
+
+  export class SkinnedMesh extends Mesh {
+    isSkinnedMesh?: boolean;
+    skeleton: Skeleton;
+  }
+
   export class AnimationClip {
     name: string;
     duration: number;
